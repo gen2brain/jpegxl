@@ -20,9 +20,12 @@ import (
 //go:embed lib/jxl.wasm
 var jxlWasm []byte
 
-var ErrMemRead = errors.New("mem read failed")
-var ErrMemWrite = errors.New("mem write failed")
-var ErrDecode = errors.New("decode failed")
+// Errors .
+var (
+	ErrMemRead  = errors.New("mem read failed")
+	ErrMemWrite = errors.New("mem write failed")
+	ErrDecode   = errors.New("decode failed")
+)
 
 // Decode reads a JPEG XL image from r and returns it as an image.Image.
 func Decode(r io.Reader) (image.Image, error) {
