@@ -10,6 +10,7 @@ import (
 	"image/color"
 	"io"
 	"os"
+	"sync/atomic"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -44,6 +45,10 @@ func DecodeConfig(r io.Reader) (image.Config, error) {
 }
 
 func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
+	if !initialized.Load() {
+		initialize()
+	}
+
 	var cfg image.Config
 	var jxl bytes.Buffer
 
@@ -143,9 +148,15 @@ var (
 	_alloc  api.Function
 	_free   api.Function
 	_decode api.Function
+
+	initialized atomic.Bool
 )
 
-func init() {
+func initialize() {
+	if initialized.Load() {
+		return
+	}
+
 	ctx := context.Background()
 	rt := wazero.NewRuntime(ctx)
 
@@ -164,4 +175,6 @@ func init() {
 	_alloc = mod.ExportedFunction("allocate")
 	_free = mod.ExportedFunction("deallocate")
 	_decode = mod.ExportedFunction("decode")
+
+	initialized.Store(true)
 }
