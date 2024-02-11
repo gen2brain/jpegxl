@@ -22,6 +22,7 @@ int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, u
     JxlDecoder* decoder = JxlDecoderCreate(NULL);
 
     if(JXL_DEC_SUCCESS != JxlDecoderSubscribeEvents(decoder, JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE)) {
+        JxlDecoderDestroy(decoder);
         return 0;
     }
 
@@ -35,11 +36,14 @@ int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, u
         JxlDecoderStatus status = JxlDecoderProcessInput(decoder);
 
         if(status == JXL_DEC_ERROR) {
+            JxlDecoderDestroy(decoder);
             return 0;
         } else if (status == JXL_DEC_NEED_MORE_INPUT) {
+            JxlDecoderDestroy(decoder);
             return 0;
         } else if (status == JXL_DEC_BASIC_INFO) {
             if(JXL_DEC_SUCCESS != JxlDecoderGetBasicInfo(decoder, &info)) {
+                JxlDecoderDestroy(decoder);
                 return 0;
             }
 
@@ -53,10 +57,12 @@ int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, u
         } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
             size_t buf_size;
             if(JXL_DEC_SUCCESS != JxlDecoderImageOutBufferSize(decoder, &format, &buf_size)) {
+                JxlDecoderDestroy(decoder);
                 return 0;
             }
 
             if(JXL_DEC_SUCCESS != JxlDecoderSetImageOutBuffer(decoder, &format, rgb_out, buf_size)) {
+                JxlDecoderDestroy(decoder);
                 return 0;
             }
         } else if (status == JXL_DEC_FULL_IMAGE) {
@@ -67,5 +73,6 @@ int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, u
         }
     }
 
+    JxlDecoderDestroy(decoder);
     return 0;
 }
