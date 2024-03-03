@@ -5,7 +5,7 @@ LIBJXL_BUILD = $(LIBJXL_SRC)/build
 
 WASI_SDK_PATH = /opt/wasi-sdk
 export CC = $(WASI_SDK_PATH)/bin/clang --sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot
-export CXXFLAGS = -msimd128 -no-pthread
+export CXXFLAGS = -msimd128
 
 CMAKE_TOOLCHAIN_FILE=$(WASI_SDK_PATH)/share/cmake/wasi-sdk.cmake
 
@@ -16,6 +16,9 @@ all: jxl.wasm
 $(LIBJXL_SRC):
 	git clone -b $(LIBJXL_VERSION) --depth 1 --recursive --jobs `nproc` https://github.com/libjxl/libjxl
 	echo "int main(int argc, char** argv) { return 0; }" > $(LIBJXL_SRC)/third_party/brotli/c/tools/brotli.c
+	sed -i '/^set(THREADS\|^find_package(Threads/d' $(LIBJXL_SRC)/CMakeLists.txt
+	sed -i '/^include(jxl_threads/d' $(LIBJXL_SRC)/lib/CMakeLists.txt
+	sed -i '/Threads::Threads/d' $(LIBJXL_SRC)/lib/jxl.cmake
 	mkdir -p $(LIBJXL_BUILD)
 	test -d $@
 

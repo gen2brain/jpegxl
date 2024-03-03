@@ -1,11 +1,12 @@
 #include <stdlib.h>
 
 #include "jxl/decode.h"
+#include <jxl/types.h>
 
 void *allocate(size_t size);
 void deallocate(void *ptr);
 
-int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, uint32_t *height, uint8_t *rgb_out);
+int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, uint32_t *height, uint32_t *depth, uint8_t *rgb_out);
 
 __attribute__((export_name("allocate")))
 void *allocate(size_t size) {
@@ -18,7 +19,7 @@ void deallocate(void *ptr) {
 }
 
 __attribute__((export_name("decode")))
-int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, uint32_t *height, uint8_t *rgb_out) {
+int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, uint32_t *height, uint32_t *depth, uint8_t *rgb_out) {
     JxlDecoder* decoder = JxlDecoderCreate(NULL);
 
     if(JXL_DEC_SUCCESS != JxlDecoderSubscribeEvents(decoder, JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE)) {
@@ -27,7 +28,7 @@ int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, u
     }
 
     JxlBasicInfo info;
-    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_LITTLE_ENDIAN, 0};
+    JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
 
     JxlDecoderSetInput(decoder, jxl_in, jxl_in_size);
     JxlDecoderCloseInput(decoder);
@@ -49,6 +50,12 @@ int decode(uint8_t *jxl_in, int jxl_in_size, int config_only, uint32_t *width, u
 
             *width = (uint32_t)info.xsize;
             *height = (uint32_t)info.ysize;
+            *depth = (uint32_t)info.bits_per_sample;
+
+            if(info.bits_per_sample == 16) {
+                format.data_type = JXL_TYPE_UINT16;
+                format.endianness = JXL_BIG_ENDIAN;
+            }
 
             if(config_only) {
                 JxlDecoderDestroy(decoder);

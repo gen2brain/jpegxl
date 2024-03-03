@@ -22,9 +22,9 @@ var jxlWasm []byte
 
 // Errors .
 var (
-	ErrMemRead  = errors.New("mem read failed")
-	ErrMemWrite = errors.New("mem write failed")
-	ErrDecode   = errors.New("decode failed")
+	ErrMemRead  = errors.New("jpegxl: mem read failed")
+	ErrMemWrite = errors.New("jpegxl: mem write failed")
+	ErrDecode   = errors.New("jpegxl: decode failed")
 )
 
 // Decode reads a JPEG XL image from r and returns it as an image.Image.
@@ -89,7 +89,14 @@ func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
 	heightPtr := res[0]
 	defer _free.Call(ctx, heightPtr)
 
-	res, err = _decode.Call(ctx, inPtr, uint64(inSize), 1, widthPtr, heightPtr, 0)
+	res, err = _alloc.Call(ctx, 4)
+	if err != nil {
+		return nil, cfg, fmt.Errorf("alloc: %w", err)
+	}
+	depthPtr := res[0]
+	defer _free.Call(ctx, depthPtr)
+
+	res, err = _decode.Call(ctx, inPtr, uint64(inSize), 1, widthPtr, heightPtr, depthPtr, 0)
 	if err != nil {
 		return nil, cfg, fmt.Errorf("decode: %w", err)
 	}
@@ -108,15 +115,27 @@ func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
 		return nil, cfg, ErrMemRead
 	}
 
+	depth, ok := mod.Memory().ReadUint32Le(uint32(depthPtr))
+	if !ok {
+		return nil, cfg, ErrMemRead
+	}
+
 	cfg.Width = int(width)
 	cfg.Height = int(height)
-	cfg.ColorModel = color.RGBAModel
+
+	cfg.ColorModel = color.NRGBAModel
+	if depth == 16 {
+		cfg.ColorModel = color.NRGBA64Model
+	}
 
 	if configOnly {
 		return nil, cfg, nil
 	}
 
 	size := cfg.Width * cfg.Height * 4
+	if depth == 16 {
+		size = cfg.Width * cfg.Height * 8
+	}
 
 	res, err = _alloc.Call(ctx, uint64(size))
 	if err != nil {
@@ -125,7 +144,7 @@ func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
 	outPtr := res[0]
 	defer _free.Call(ctx, outPtr)
 
-	res, err = _decode.Call(ctx, inPtr, uint64(inSize), 0, widthPtr, heightPtr, outPtr)
+	res, err = _decode.Call(ctx, inPtr, uint64(inSize), 0, widthPtr, heightPtr, depthPtr, outPtr)
 	if err != nil {
 		return nil, cfg, fmt.Errorf("decode: %w", err)
 	}
@@ -134,15 +153,22 @@ func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
 		return nil, cfg, ErrDecode
 	}
 
-	tmp, ok := mod.Memory().Read(uint32(outPtr), uint32(size))
+	out, ok := mod.Memory().Read(uint32(outPtr), uint32(size))
 	if !ok {
 		return nil, cfg, ErrMemRead
 	}
 
-	img := image.NewRGBA(image.Rect(0, 0, cfg.Width, cfg.Height))
-	copy(img.Pix, tmp)
+	if depth == 16 {
+		img := image.NewNRGBA64(image.Rect(0, 0, cfg.Width, cfg.Height))
+		img.Pix = out
 
-	return img, cfg, nil
+		return img, cfg, nil
+	} else {
+		img := image.NewNRGBA(image.Rect(0, 0, cfg.Width, cfg.Height))
+		img.Pix = out
+
+		return img, cfg, nil
+	}
 }
 
 var (

@@ -11,11 +11,26 @@ import (
 	"github.com/gen2brain/jpegxl"
 )
 
-//go:embed testdata/test.jxl
-var testJxl []byte
+//go:embed testdata/test8.jxl
+var testJxl8 []byte
+
+//go:embed testdata/test16.jxl
+var testJxl16 []byte
 
 func TestDecode(t *testing.T) {
-	img, err := jpegxl.Decode(bytes.NewReader(testJxl))
+	img, err := jpegxl.Decode(bytes.NewReader(testJxl8))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = jpeg.Encode(io.Discard, img, nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDecode16(t *testing.T) {
+	img, err := jpegxl.Decode(bytes.NewReader(testJxl16))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +42,7 @@ func TestDecode(t *testing.T) {
 }
 
 func TestImageDecode(t *testing.T) {
-	img, _, err := image.Decode(bytes.NewReader(testJxl))
+	img, _, err := image.Decode(bytes.NewReader(testJxl8))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +54,7 @@ func TestImageDecode(t *testing.T) {
 }
 
 func TestDecodeConfig(t *testing.T) {
-	cfg, err := jpegxl.DecodeConfig(bytes.NewReader(testJxl))
+	cfg, err := jpegxl.DecodeConfig(bytes.NewReader(testJxl8))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +69,7 @@ func TestDecodeConfig(t *testing.T) {
 }
 
 func BenchmarkDecodeJPEG(b *testing.B) {
-	img, _, err := image.Decode(bytes.NewReader(testJxl))
+	img, _, err := image.Decode(bytes.NewReader(testJxl8))
 	if err != nil {
 		b.Error(err)
 	}
@@ -75,7 +90,7 @@ func BenchmarkDecodeJPEG(b *testing.B) {
 
 func BenchmarkDecodeJPEGXL(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, _, err := image.Decode(bytes.NewReader(testJxl))
+		_, _, err := image.Decode(bytes.NewReader(testJxl8))
 		if err != nil {
 			b.Error(err)
 		}
@@ -84,7 +99,7 @@ func BenchmarkDecodeJPEGXL(b *testing.B) {
 
 func BenchmarkDecodeConfig(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := jpegxl.DecodeConfig(bytes.NewReader(testJxl))
+		_, err := jpegxl.DecodeConfig(bytes.NewReader(testJxl8))
 		if err != nil {
 			b.Error(err)
 		}
