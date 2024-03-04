@@ -17,6 +17,9 @@ var testJxl8 []byte
 //go:embed testdata/test16.jxl
 var testJxl16 []byte
 
+//go:embed testdata/test.jxl
+var testJxlAnim []byte
+
 func TestDecode(t *testing.T) {
 	img, err := jpegxl.Decode(bytes.NewReader(testJxl8))
 	if err != nil {
@@ -41,8 +44,42 @@ func TestDecode16(t *testing.T) {
 	}
 }
 
+func TestDecodeAnim(t *testing.T) {
+	imgs, delay, err := jpegxl.DecodeAll(bytes.NewReader(testJxlAnim))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(imgs) != len(delay) {
+		t.Errorf("not equal, got %d, want %d", len(delay), len(imgs))
+	}
+
+	if len(imgs) != 48 {
+		t.Errorf("got %d, want %d", len(delay), 48)
+	}
+
+	for _, img := range imgs {
+		err = jpeg.Encode(io.Discard, img, nil)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 func TestImageDecode(t *testing.T) {
 	img, _, err := image.Decode(bytes.NewReader(testJxl8))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = jpeg.Encode(io.Discard, img, nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestImageDecodeAnim(t *testing.T) {
+	img, _, err := image.Decode(bytes.NewReader(testJxlAnim))
 	if err != nil {
 		t.Fatal(err)
 	}
