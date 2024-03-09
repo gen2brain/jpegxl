@@ -113,7 +113,7 @@ func BenchmarkDecodeJPEGXL(b *testing.B) {
 }
 
 func BenchmarkDecodeJPEGXLDynamic(b *testing.B) {
-	if !dynamic {
+	if !Dynamic() {
 		b.Errorf("dynamic/shared library not installed")
 		return
 	}
@@ -136,7 +136,7 @@ func BenchmarkDecodeConfigJPEGXL(b *testing.B) {
 }
 
 func BenchmarkDecodeConfigJPEGXLDynamic(b *testing.B) {
-	if !dynamic {
+	if !Dynamic() {
 		b.Errorf("dynamic/shared library not installed")
 		return
 	}

@@ -82,6 +82,11 @@ func DecodeAll(r io.Reader) (*JXL, error) {
 	return ret, nil
 }
 
+// Dynamic returns true when library is using the dynamic/shared library.
+func Dynamic() bool {
+	return dynamic
+}
+
 func init() {
 	image.RegisterFormat("jxl", "????JXL", Decode, DecodeConfig)
 	image.RegisterFormat("jxl", "\xff\x0a", Decode, DecodeConfig)
