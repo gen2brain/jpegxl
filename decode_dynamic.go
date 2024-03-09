@@ -1,6 +1,7 @@
 package jpegxl
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -120,11 +121,19 @@ func decodeDynamic(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config,
 
 func init() {
 	var err error
+	defer func() {
+		if r := recover(); r != nil {
+			dynamic = false
+			dynamicErr = fmt.Errorf("%v", r)
+		}
+	}()
 
 	libjxl, err = loadLibrary()
 	if err == nil {
 		dynamic = true
 	} else {
+		dynamicErr = err
+
 		return
 	}
 
@@ -142,8 +151,9 @@ func init() {
 }
 
 var (
-	libjxl  uintptr
-	dynamic bool
+	libjxl     uintptr
+	dynamic    bool
+	dynamicErr error
 )
 
 const (
