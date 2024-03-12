@@ -2,6 +2,7 @@ package jpegxl
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	_ "embed"
 	"fmt"
@@ -16,7 +17,7 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
-//go:embed lib/jxl.wasm
+//go:embed lib/jxl.wasm.gz
 var jxlWasm []byte
 
 func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error) {
@@ -216,7 +217,18 @@ func initialize() {
 	ctx := context.Background()
 	rt := wazero.NewRuntime(ctx)
 
-	compiled, err := rt.CompileModule(ctx, jxlWasm)
+	r, err := gzip.NewReader(bytes.NewReader(jxlWasm))
+	if err != nil {
+		panic(err)
+	}
+
+	var data bytes.Buffer
+	_, err = data.ReadFrom(r)
+	if err != nil {
+		panic(err)
+	}
+
+	compiled, err := rt.CompileModule(ctx, data.Bytes())
 	if err != nil {
 		panic(err)
 	}
