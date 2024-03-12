@@ -199,12 +199,69 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 	return ret, cfg, nil
 }
 
+func encode(w io.Writer, m image.Image, quality, effort int) error {
+	if !initialized.Load() {
+		initialize()
+	}
+
+	img := imageToNRGBA(m)
+	ctx := context.Background()
+
+	res, err := _alloc.Call(ctx, uint64(len(img.Pix)))
+	if err != nil {
+		return fmt.Errorf("alloc: %w", err)
+	}
+	inPtr := res[0]
+	defer _free.Call(ctx, inPtr)
+
+	ok := mod.Memory().Write(uint32(inPtr), img.Pix)
+	if !ok {
+		return ErrMemWrite
+	}
+
+	res, err = _alloc.Call(ctx, 8)
+	if err != nil {
+		return fmt.Errorf("alloc: %w", err)
+	}
+	sizePtr := res[0]
+	defer _free.Call(ctx, sizePtr)
+
+	res, err = _encode.Call(ctx, inPtr, uint64(img.Bounds().Dx()), uint64(img.Bounds().Dy()), sizePtr, uint64(quality), uint64(effort))
+	if err != nil {
+		return fmt.Errorf("encode: %w", err)
+	}
+
+	size, ok := mod.Memory().ReadUint64Le(uint32(sizePtr))
+	if !ok {
+		return ErrMemRead
+	}
+
+	if size == 0 {
+		return ErrEncode
+	}
+
+	defer _free.Call(ctx, res[0])
+
+	out, ok := mod.Memory().Read(uint32(res[0]), uint32(size))
+	if !ok {
+		return ErrMemRead
+	}
+
+	_, err = w.Write(out)
+	if err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+
+	return nil
+}
+
 var (
 	mod api.Module
 
 	_alloc  api.Function
 	_free   api.Function
 	_decode api.Function
+	_encode api.Function
 
 	initialized atomic.Bool
 )
@@ -243,6 +300,7 @@ func initialize() {
 	_alloc = mod.ExportedFunction("allocate")
 	_free = mod.ExportedFunction("deallocate")
 	_decode = mod.ExportedFunction("decode")
+	_encode = mod.ExportedFunction("encode")
 
 	initialized.Store(true)
 }

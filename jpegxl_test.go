@@ -103,6 +103,18 @@ func TestDecodeConfig(t *testing.T) {
 	}
 }
 
+func TestEncode(t *testing.T) {
+	img, err := Decode(bytes.NewReader(testJxl8))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = Encode(io.Discard, img)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func BenchmarkDecodeJPEGXL(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _, err := decode(bytes.NewReader(testJxl8), false, false)
@@ -143,6 +155,34 @@ func BenchmarkDecodeConfigJPEGXLDynamic(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, _, err := decodeDynamic(bytes.NewReader(testJxl8), true, false)
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
+func BenchmarkEncodeJPEGXL(b *testing.B) {
+	img, err := Decode(bytes.NewReader(testJxl8))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		err := encode(io.Discard, img, DefaultQuality, DefaultEffort)
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
+func BenchmarkEncodeJPEGXLDynamic(b *testing.B) {
+	img, err := Decode(bytes.NewReader(testJxl8))
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		err := encodeDynamic(io.Discard, img, DefaultQuality, DefaultEffort)
 		if err != nil {
 			b.Error(err)
 		}

@@ -1,4 +1,4 @@
-LIBJXL_VERSION = v0.10.1
+LIBJXL_VERSION = v0.10.2
 
 LIBJXL_SRC = $(PWD)/libjxl
 LIBJXL_BUILD = $(LIBJXL_SRC)/build
@@ -56,7 +56,10 @@ $(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
 		-Wall \
 		jxl.c \
 		${LIBJXL_BUILD}/lib/libjxl.a \
+		${LIBJXL_BUILD}/lib/libjxl_cms.a \
 		${LIBJXL_BUILD}/third_party/highway/libhwy.a \
+		${LIBJXL_BUILD}/third_party/brotli/libbrotlicommon.a \
+		${LIBJXL_BUILD}/third_party/brotli/libbrotlienc.a \
 		-lstdc++
 
 .PHONY: clean
