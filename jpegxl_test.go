@@ -42,6 +42,34 @@ func TestDecode16(t *testing.T) {
 	}
 }
 
+func TestDecodeWASM(t *testing.T) {
+	img, _, err := decode(bytes.NewReader(testJxl8), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = jpeg.Encode(io.Discard, img.Image[0], nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDecodeDynamic(t *testing.T) {
+	if Dynamic() != nil {
+		return
+	}
+
+	img, _, err := decodeDynamic(bytes.NewReader(testJxl8), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = jpeg.Encode(io.Discard, img.Image[0], nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestDecodeAnim(t *testing.T) {
 	ret, err := DecodeAll(bytes.NewReader(testJxlAnim))
 	if err != nil {
