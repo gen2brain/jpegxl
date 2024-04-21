@@ -6,14 +6,15 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/tetratelabs/wazero"
-	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"image"
 	"image/color"
 	"io"
 	"os"
 	"sync"
+
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 //go:embed lib/jxl.wasm.gz
@@ -278,6 +279,7 @@ func initialize() {
 	if err != nil {
 		panic(err)
 	}
+	defer r.Close()
 
 	var data bytes.Buffer
 	_, err = data.ReadFrom(r)
