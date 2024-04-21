@@ -5,6 +5,7 @@ LIBJXL_BUILD = $(LIBJXL_SRC)/build
 
 WASI_SDK_PATH = /opt/wasi-sdk
 export CC = $(WASI_SDK_PATH)/bin/clang --sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot
+export CXX = $(WASI_SDK_PATH)/bin/clang --sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot
 export CXXFLAGS = -msimd128
 
 CMAKE_TOOLCHAIN_FILE=$(WASI_SDK_PATH)/share/cmake/wasi-sdk.cmake
@@ -19,6 +20,7 @@ $(LIBJXL_SRC):
 	sed -i '/^set(THREADS\|^find_package(Threads/d' $(LIBJXL_SRC)/CMakeLists.txt
 	sed -i '/^include(jxl_threads/d' $(LIBJXL_SRC)/lib/CMakeLists.txt
 	sed -i '/Threads::Threads/d' $(LIBJXL_SRC)/lib/jxl.cmake
+	sed -i '/Threads::Threads/d' $(LIBJXL_SRC)/lib/jpegli.cmake
 	mkdir -p $(LIBJXL_BUILD)
 	test -d $@
 
@@ -30,6 +32,7 @@ $(LIBJXL_BUILD)/lib/libjxl.a: $(LIBJXL_SRC)
 		-DBUILD_TESTING=0 \
 		-DJPEGXL_ENABLE_TOOLS=0 \
 		-DJPEGXL_ENABLE_JPEGLI=0 \
+		-DJPEGXL_ENABLE_JPEGLI_LIBJPEG=0 \
 		-DJPEGXL_ENABLE_DOXYGEN=0 \
 		-DJPEGXL_ENABLE_MANPAGES=0 \
 		-DJPEGXL_ENABLE_BENCHMARK=0 \
@@ -48,6 +51,10 @@ $(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
 	$(CC) \
 		-O3 \
 		-Wl,--no-entry \
+		-Wl,--export=malloc \
+		-Wl,--export=free \
+		-Wl,--export=decode \
+		-Wl,--export=encode \
 		-mexec-model=reactor \
 		-fno-exceptions \
 		-mnontrapping-fptoint \

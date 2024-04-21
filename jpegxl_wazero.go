@@ -297,8 +297,8 @@ func initialize() {
 		panic(err)
 	}
 
-	_alloc = mod.ExportedFunction("allocate")
-	_free = mod.ExportedFunction("deallocate")
+	_alloc = mod.ExportedFunction("malloc")
+	_free = mod.ExportedFunction("free")
 	_decode = mod.ExportedFunction("decode")
 	_encode = mod.ExportedFunction("encode")
 
