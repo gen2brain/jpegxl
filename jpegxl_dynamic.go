@@ -34,7 +34,7 @@ func decodeDynamic(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config,
 	format.Endianness = jxlNativeEndian
 
 	if configOnly {
-		data = make([]byte, 1024)
+		data = make([]byte, jxlMaxHeaderSize)
 		_, err = r.Read(data)
 		if err != nil {
 			return nil, cfg, fmt.Errorf("read: %w", err)

@@ -153,6 +153,10 @@ func imageToNRGBA(src image.Image) *image.NRGBA {
 	return dst
 }
 
+const (
+	jxlMaxHeaderSize = 16384
+)
+
 func init() {
 	image.RegisterFormat("jxl", "????JXL", Decode, DecodeConfig)
 	image.RegisterFormat("jxl", "\xff\x0a", Decode, DecodeConfig)
