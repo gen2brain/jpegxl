@@ -12,7 +12,7 @@ CMAKE_TOOLCHAIN_FILE=$(WASI_SDK_PATH)/share/cmake/wasi-sdk.cmake
 
 BIN := jxl.wasm
 
-all: jxl.wasm
+all: $(BIN)
 
 $(LIBJXL_SRC):
 	git clone -b $(LIBJXL_VERSION) --depth 1 --recursive --jobs `nproc` https://github.com/libjxl/libjxl

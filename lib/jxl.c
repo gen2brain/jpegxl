@@ -1,4 +1,3 @@
-#include <jxl/types.h>
 #include <stdlib.h>
 #include <string.h>
 
