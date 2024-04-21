@@ -1,3 +1,5 @@
+//go:build (unix || darwin || windows) && !nodynamic
+
 package jpegxl
 
 import (

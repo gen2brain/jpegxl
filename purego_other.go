@@ -1,12 +1,26 @@
-//go:build !unix && !darwin && !windows
+//go:build (!unix && !darwin && !windows) || nodynamic
 
 package jpegxl
 
 import (
 	"fmt"
-	"runtime"
+	"image"
+	"io"
 )
 
+var (
+	dynamic    = false
+	dynamicErr = fmt.Errorf("jpegxl: dynamic disabled")
+)
+
+func decodeDynamic(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error) {
+	return nil, image.Config{}, dynamicErr
+}
+
+func encodeDynamic(w io.Writer, m image.Image, quality, effort int) error {
+	return dynamicErr
+}
+
 func loadLibrary() (uintptr, error) {
-	return 0, fmt.Errorf("unsupported os: %s", runtime.GOOS)
+	return 0, dynamicErr
 }
