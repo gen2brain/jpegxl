@@ -6,24 +6,21 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"image"
 	"image/color"
 	"io"
 	"os"
-	"sync/atomic"
-
-	"github.com/tetratelabs/wazero"
-	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+	"sync"
 )
 
 //go:embed lib/jxl.wasm.gz
 var jxlWasm []byte
 
 func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error) {
-	if !initialized.Load() {
-		initialize()
-	}
+	initializeOnce()
 
 	var cfg image.Config
 	var jxl bytes.Buffer
@@ -200,9 +197,7 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 }
 
 func encode(w io.Writer, m image.Image, quality, effort int) error {
-	if !initialized.Load() {
-		initialize()
-	}
+	initializeOnce()
 
 	img := imageToNRGBA(m)
 	ctx := context.Background()
@@ -263,14 +258,10 @@ var (
 	_decode api.Function
 	_encode api.Function
 
-	initialized atomic.Bool
+	initializeOnce = sync.OnceFunc(initialize)
 )
 
 func initialize() {
-	if initialized.Load() {
-		return
-	}
-
 	ctx := context.Background()
 	rt := wazero.NewRuntime(ctx)
 
@@ -301,6 +292,4 @@ func initialize() {
 	_free = mod.ExportedFunction("free")
 	_decode = mod.ExportedFunction("decode")
 	_encode = mod.ExportedFunction("encode")
-
-	initialized.Store(true)
 }
