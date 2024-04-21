@@ -22,15 +22,24 @@ var jxlWasm []byte
 func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error) {
 	initializeOnce()
 
+	var err error
 	var cfg image.Config
-	var jxl bytes.Buffer
+	var data []byte
 
-	_, err := jxl.ReadFrom(r)
-	if err != nil {
-		return nil, cfg, fmt.Errorf("read: %w", err)
+	if configOnly {
+		data = make([]byte, 1024)
+		_, err = r.Read(data)
+		if err != nil {
+			return nil, cfg, fmt.Errorf("read: %w", err)
+		}
+	} else {
+		data, err = io.ReadAll(r)
+		if err != nil {
+			return nil, cfg, fmt.Errorf("read: %w", err)
+		}
 	}
 
-	inSize := jxl.Len()
+	inSize := len(data)
 	ctx := context.Background()
 
 	res, err := _alloc.Call(ctx, uint64(inSize))
@@ -40,7 +49,7 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 	inPtr := res[0]
 	defer _free.Call(ctx, inPtr)
 
-	ok := mod.Memory().Write(uint32(inPtr), jxl.Bytes())
+	ok := mod.Memory().Write(uint32(inPtr), data)
 	if !ok {
 		return nil, cfg, ErrMemWrite
 	}
