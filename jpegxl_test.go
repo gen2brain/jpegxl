@@ -3,9 +3,11 @@ package jpegxl
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
+	"os"
 	"testing"
 )
 
@@ -19,44 +21,45 @@ var testJxl16 []byte
 var testJxlAnim []byte
 
 func TestDecode(t *testing.T) {
-	img, err := Decode(bytes.NewReader(testJxl8))
+	img, _, err := decode(bytes.NewReader(testJxl8), false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = jpeg.Encode(io.Discard, img, nil)
+	w, err := writeCloser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = jpeg.Encode(w, img.Image[0], nil)
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestDecode16(t *testing.T) {
-	img, err := Decode(bytes.NewReader(testJxl16))
+	img, _, err := decode(bytes.NewReader(testJxl16), false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = jpeg.Encode(io.Discard, img, nil)
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func TestDecodeWASM(t *testing.T) {
-	img, _, err := decode(bytes.NewReader(testJxl8), false, false)
+	w, err := writeCloser()
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer w.Close()
 
-	err = jpeg.Encode(io.Discard, img.Image[0], nil)
+	err = jpeg.Encode(w, img.Image[0], nil)
 	if err != nil {
 		t.Error(err)
 	}
 }
 
 func TestDecodeDynamic(t *testing.T) {
-	if Dynamic() != nil {
-		return
+	if err := Dynamic(); err != nil {
+		fmt.Println(err)
+		t.Skip()
 	}
 
 	img, _, err := decodeDynamic(bytes.NewReader(testJxl8), false, false)
@@ -64,7 +67,36 @@ func TestDecodeDynamic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = jpeg.Encode(io.Discard, img.Image[0], nil)
+	w, err := writeCloser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = jpeg.Encode(w, img.Image[0], nil)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDecode16Dynamic(t *testing.T) {
+	if err := Dynamic(); err != nil {
+		fmt.Println(err)
+		t.Skip()
+	}
+
+	img, _, err := decodeDynamic(bytes.NewReader(testJxl16), false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w, err := writeCloser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = jpeg.Encode(w, img.Image[0], nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -98,7 +130,13 @@ func TestImageDecode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = jpeg.Encode(io.Discard, img, nil)
+	w, err := writeCloser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = jpeg.Encode(w, img, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -110,7 +148,13 @@ func TestImageDecodeAnim(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = jpeg.Encode(io.Discard, img, nil)
+	w, err := writeCloser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = jpeg.Encode(w, img, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -137,13 +181,42 @@ func TestEncode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Encode(io.Discard, img)
+	w, err := writeCloser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = encode(w, img, DefaultQuality, DefaultEffort)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func BenchmarkDecodeJPEGXL(b *testing.B) {
+func TestEncodeDynamic(t *testing.T) {
+	if err := Dynamic(); err != nil {
+		fmt.Println(err)
+		t.Skip()
+	}
+
+	img, err := Decode(bytes.NewReader(testJxl8))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w, err := writeCloser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	err = encodeDynamic(w, img, DefaultQuality, DefaultEffort)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func BenchmarkDecode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _, err := decode(bytes.NewReader(testJxl8), false, false)
 		if err != nil {
@@ -152,10 +225,10 @@ func BenchmarkDecodeJPEGXL(b *testing.B) {
 	}
 }
 
-func BenchmarkDecodeJPEGXLDynamic(b *testing.B) {
-	if Dynamic() != nil {
-		b.Errorf("dynamic/shared library not installed")
-		return
+func BenchmarkDecodeDynamic(b *testing.B) {
+	if err := Dynamic(); err != nil {
+		fmt.Println(err)
+		b.Skip()
 	}
 
 	for i := 0; i < b.N; i++ {
@@ -166,7 +239,7 @@ func BenchmarkDecodeJPEGXLDynamic(b *testing.B) {
 	}
 }
 
-func BenchmarkDecodeConfigJPEGXL(b *testing.B) {
+func BenchmarkDecodeConfig(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _, err := decode(bytes.NewReader(testJxl8), true, false)
 		if err != nil {
@@ -175,10 +248,10 @@ func BenchmarkDecodeConfigJPEGXL(b *testing.B) {
 	}
 }
 
-func BenchmarkDecodeConfigJPEGXLDynamic(b *testing.B) {
-	if Dynamic() != nil {
-		b.Errorf("dynamic/shared library not installed")
-		return
+func BenchmarkDecodeConfigDynamic(b *testing.B) {
+	if err := Dynamic(); err != nil {
+		fmt.Println(err)
+		b.Skip()
 	}
 
 	for i := 0; i < b.N; i++ {
@@ -189,7 +262,7 @@ func BenchmarkDecodeConfigJPEGXLDynamic(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeJPEGXL(b *testing.B) {
+func BenchmarkEncode(b *testing.B) {
 	img, err := Decode(bytes.NewReader(testJxl8))
 	if err != nil {
 		b.Fatal(err)
@@ -203,7 +276,12 @@ func BenchmarkEncodeJPEGXL(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeJPEGXLDynamic(b *testing.B) {
+func BenchmarkEncodeDynamic(b *testing.B) {
+	if err := Dynamic(); err != nil {
+		fmt.Println(err)
+		b.Skip()
+	}
+
 	img, err := Decode(bytes.NewReader(testJxl8))
 	if err != nil {
 		b.Fatal(err)
@@ -215,4 +293,29 @@ func BenchmarkEncodeJPEGXLDynamic(b *testing.B) {
 			b.Error(err)
 		}
 	}
+}
+
+type discard struct{}
+
+func (d discard) Close() error {
+	return nil
+}
+
+func (discard) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+var discardCloser io.WriteCloser = discard{}
+
+func writeCloser(s ...string) (io.WriteCloser, error) {
+	if len(s) > 0 {
+		f, err := os.Create(s[0])
+		if err != nil {
+			return nil, err
+		}
+
+		return f, nil
+	}
+
+	return discardCloser, nil
 }
