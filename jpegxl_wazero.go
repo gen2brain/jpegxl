@@ -17,11 +17,14 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
-//go:embed lib/jxl.wasm.gz
-var jxlWasm []byte
+//go:embed lib/decode.wasm.gz
+var decodeWasm []byte
+
+//go:embed lib/encode.wasm.gz
+var encodeWasm []byte
 
 func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error) {
-	initializeOnce()
+	initializeDecoderOnce()
 
 	var err error
 	var cfg image.Config
@@ -42,7 +45,7 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 	inPtr := res[0]
 	defer _free.Call(ctx, inPtr)
 
-	ok := mod.Memory().Write(uint32(inPtr), data)
+	ok := dec.Memory().Write(uint32(inPtr), data)
 	if !ok {
 		return nil, cfg, ErrMemWrite
 	}
@@ -67,22 +70,22 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 		return nil, cfg, ErrDecode
 	}
 
-	width, ok := mod.Memory().ReadUint32Le(uint32(widthPtr))
+	width, ok := dec.Memory().ReadUint32Le(uint32(widthPtr))
 	if !ok {
 		return nil, cfg, ErrMemRead
 	}
 
-	height, ok := mod.Memory().ReadUint32Le(uint32(heightPtr))
+	height, ok := dec.Memory().ReadUint32Le(uint32(heightPtr))
 	if !ok {
 		return nil, cfg, ErrMemRead
 	}
 
-	depth, ok := mod.Memory().ReadUint32Le(uint32(depthPtr))
+	depth, ok := dec.Memory().ReadUint32Le(uint32(depthPtr))
 	if !ok {
 		return nil, cfg, ErrMemRead
 	}
 
-	count, ok := mod.Memory().ReadUint32Le(uint32(countPtr))
+	count, ok := dec.Memory().ReadUint32Le(uint32(countPtr))
 	if !ok {
 		return nil, cfg, ErrMemRead
 	}
@@ -146,7 +149,7 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 	images := make([]image.Image, 0)
 
 	for i := 0; i < int(count); i++ {
-		out, ok := mod.Memory().Read(uint32(outPtr)+uint32(i*size), uint32(size))
+		out, ok := dec.Memory().Read(uint32(outPtr)+uint32(i*size), uint32(size))
 		if !ok {
 			return nil, cfg, ErrMemRead
 		}
@@ -161,7 +164,7 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 			images = append(images, img)
 		}
 
-		d, ok := mod.Memory().ReadUint32Le(uint32(delayPtr) + uint32(i*4))
+		d, ok := dec.Memory().ReadUint32Le(uint32(delayPtr) + uint32(i*4))
 		if !ok {
 			return nil, cfg, ErrMemRead
 		}
@@ -182,7 +185,7 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 }
 
 func encode(w io.Writer, m image.Image, quality, effort int) error {
-	initializeOnce()
+	initializeEncoderOnce()
 
 	img := imageToNRGBA(m)
 	ctx := context.Background()
@@ -194,7 +197,7 @@ func encode(w io.Writer, m image.Image, quality, effort int) error {
 	inPtr := res[0]
 	defer _free.Call(ctx, inPtr)
 
-	ok := mod.Memory().Write(uint32(inPtr), img.Pix)
+	ok := enc.Memory().Write(uint32(inPtr), img.Pix)
 	if !ok {
 		return ErrMemWrite
 	}
@@ -211,7 +214,7 @@ func encode(w io.Writer, m image.Image, quality, effort int) error {
 		return fmt.Errorf("encode: %w", err)
 	}
 
-	size, ok := mod.Memory().ReadUint64Le(uint32(sizePtr))
+	size, ok := enc.Memory().ReadUint64Le(uint32(sizePtr))
 	if !ok {
 		return ErrMemRead
 	}
@@ -222,7 +225,7 @@ func encode(w io.Writer, m image.Image, quality, effort int) error {
 
 	defer _free.Call(ctx, res[0])
 
-	out, ok := mod.Memory().Read(uint32(res[0]), uint32(size))
+	out, ok := enc.Memory().Read(uint32(res[0]), uint32(size))
 	if !ok {
 		return ErrMemRead
 	}
@@ -236,21 +239,23 @@ func encode(w io.Writer, m image.Image, quality, effort int) error {
 }
 
 var (
-	mod api.Module
+	dec api.Module
+	enc api.Module
 
 	_alloc  api.Function
 	_free   api.Function
 	_decode api.Function
 	_encode api.Function
 
-	initializeOnce = sync.OnceFunc(initialize)
+	initializeDecoderOnce = sync.OnceFunc(initializeDecoder)
+	initializeEncoderOnce = sync.OnceFunc(initializeEncoder)
 )
 
-func initialize() {
+func initializeDecoder() {
 	ctx := context.Background()
 	rt := wazero.NewRuntime(ctx)
 
-	r, err := gzip.NewReader(bytes.NewReader(jxlWasm))
+	r, err := gzip.NewReader(bytes.NewReader(decodeWasm))
 	if err != nil {
 		panic(err)
 	}
@@ -269,13 +274,45 @@ func initialize() {
 
 	wasi_snapshot_preview1.MustInstantiate(ctx, rt)
 
-	mod, err = rt.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithStderr(os.Stderr).WithStdout(os.Stdout))
+	dec, err = rt.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithStderr(os.Stderr).WithStdout(os.Stdout))
 	if err != nil {
 		panic(err)
 	}
 
-	_alloc = mod.ExportedFunction("malloc")
-	_free = mod.ExportedFunction("free")
-	_decode = mod.ExportedFunction("decode")
-	_encode = mod.ExportedFunction("encode")
+	_alloc = dec.ExportedFunction("malloc")
+	_free = dec.ExportedFunction("free")
+	_decode = dec.ExportedFunction("decode")
+}
+
+func initializeEncoder() {
+	ctx := context.Background()
+	rt := wazero.NewRuntime(ctx)
+
+	r, err := gzip.NewReader(bytes.NewReader(encodeWasm))
+	if err != nil {
+		panic(err)
+	}
+	defer r.Close()
+
+	var data bytes.Buffer
+	_, err = data.ReadFrom(r)
+	if err != nil {
+		panic(err)
+	}
+
+	compiled, err := rt.CompileModule(ctx, data.Bytes())
+	if err != nil {
+		panic(err)
+	}
+
+	wasi_snapshot_preview1.MustInstantiate(ctx, rt)
+
+	enc, err = rt.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithStderr(os.Stderr).WithStdout(os.Stdout))
+	if err != nil {
+		panic(err)
+	}
+
+	_alloc = enc.ExportedFunction("malloc")
+	_free = enc.ExportedFunction("free")
+	_encode = enc.ExportedFunction("encode")
 }
