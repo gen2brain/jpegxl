@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"io"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -214,6 +215,31 @@ func TestEncodeDynamic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestEncodeSync(t *testing.T) {
+	wg := sync.WaitGroup{}
+	ch := make(chan bool, 2)
+
+	img, err := Decode(bytes.NewReader(testJxl8))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			ch <- true
+			defer func() { <-ch; wg.Done() }()
+
+			err = encode(io.Discard, img, DefaultQuality, DefaultEffort)
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+
+	wg.Wait()
 }
 
 func BenchmarkDecode(b *testing.B) {
