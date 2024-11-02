@@ -1,9 +1,8 @@
 module github.com/gen2brain/jpegxl
 
-go 1.21
+go 1.22
 
 require (
-	github.com/ebitengine/purego v0.7.1
-	github.com/tetratelabs/wazero v1.7.3
-	golang.org/x/sys v0.21.0
+	github.com/ebitengine/purego v0.8.1
+	github.com/tetratelabs/wazero v1.8.1
 )
