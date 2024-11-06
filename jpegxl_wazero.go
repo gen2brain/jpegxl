@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"debug/pe"
 	_ "embed"
 	"fmt"
 	"image"
 	"image/color"
 	"io"
 	"os"
+	"runtime"
 	"sync"
 
 	"github.com/tetratelabs/wazero"
@@ -264,8 +266,7 @@ var (
 	rte wazero.Runtime
 	cmd wazero.CompiledModule
 	cme wazero.CompiledModule
-
-	mc = wazero.NewModuleConfig().WithStderr(os.Stderr).WithStdout(os.Stdout)
+	mc  wazero.ModuleConfig
 
 	initDecoderOnce = sync.OnceFunc(initializeDecoder)
 	initEncoderOnce = sync.OnceFunc(initializeEncoder)
@@ -293,6 +294,12 @@ func initializeDecoder() {
 	}
 
 	wasi_snapshot_preview1.MustInstantiate(ctx, rtd)
+
+	if runtime.GOOS == "windows" && isWindowsGUI() {
+		mc = wazero.NewModuleConfig().WithStderr(io.Discard).WithStdout(io.Discard)
+	} else {
+		mc = wazero.NewModuleConfig().WithStderr(os.Stderr).WithStdout(os.Stdout)
+	}
 }
 
 func initializeEncoder() {
@@ -317,4 +324,39 @@ func initializeEncoder() {
 	}
 
 	wasi_snapshot_preview1.MustInstantiate(ctx, rte)
+
+	if runtime.GOOS == "windows" && isWindowsGUI() {
+		mc = wazero.NewModuleConfig().WithStderr(io.Discard).WithStdout(io.Discard)
+	} else {
+		mc = wazero.NewModuleConfig().WithStderr(os.Stderr).WithStdout(os.Stdout)
+	}
+}
+
+func isWindowsGUI() bool {
+	const imageSubsystemWindowsGui = 2
+
+	fileName, err := os.Executable()
+	if err != nil {
+		return false
+	}
+
+	fl, err := pe.Open(fileName)
+	if err != nil {
+		return false
+	}
+
+	defer fl.Close()
+
+	var subsystem uint16
+	if header, ok := fl.OptionalHeader.(*pe.OptionalHeader64); ok {
+		subsystem = header.Subsystem
+	} else if header, ok := fl.OptionalHeader.(*pe.OptionalHeader32); ok {
+		subsystem = header.Subsystem
+	}
+
+	if subsystem == imageSubsystemWindowsGui {
+		return true
+	}
+
+	return false
 }
