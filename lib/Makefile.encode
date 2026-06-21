@@ -54,6 +54,7 @@ $(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
 		-Wl,--export=malloc \
 		-Wl,--export=free \
 		-Wl,--export=encode \
+		-Wl,--strip-debug \
 		-mexec-model=reactor \
 		-fno-exceptions \
 		-mnontrapping-fptoint \
