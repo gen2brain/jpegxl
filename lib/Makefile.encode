@@ -1,4 +1,4 @@
-LIBJXL_VERSION = v0.11.0
+LIBJXL_VERSION = v0.11.2
 
 LIBJXL_SRC = $(PWD)/libjxl.encode
 LIBJXL_BUILD = $(LIBJXL_SRC)/build
