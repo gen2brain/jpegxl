@@ -17,7 +17,7 @@ func decodeDynamic(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config,
 	return nil, image.Config{}, dynamicErr
 }
 
-func encodeDynamic(w io.Writer, m image.Image, quality, effort int) error {
+func encodeDynamic(w io.Writer, m image.Image, quality, effort int, lossless bool) error {
 	return dynamicErr
 }
 

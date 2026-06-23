@@ -24,10 +24,12 @@ const DefaultEffort = 7
 
 // Options are the encoding parameters.
 type Options struct {
-	// Quality in the range [0,100]. Quality of 100 enables lossless. Default is 75.
+	// Quality in the range [0,100]. Default is 75.
 	Quality int
 	// Effort in the range [1,10]. Sets encoder effort/speed level without affecting decoding speed. Default is 7.
 	Effort int
+	// Lossless enables lossless compression. Lossless ignores quality.
+	Lossless bool
 }
 
 // Errors .
@@ -102,11 +104,13 @@ func DecodeAll(r io.Reader) (*JXL, error) {
 func Encode(w io.Writer, m image.Image, o ...Options) error {
 	effort := DefaultEffort
 	quality := DefaultQuality
+	lossless := false
 
 	if o != nil {
 		opt := o[0]
 		effort = opt.Effort
 		quality = opt.Quality
+		lossless = opt.Lossless
 
 		if effort <= 0 {
 			effort = DefaultEffort
@@ -122,12 +126,12 @@ func Encode(w io.Writer, m image.Image, o ...Options) error {
 	}
 
 	if dynamic {
-		err := encodeDynamic(w, m, quality, effort)
+		err := encodeDynamic(w, m, quality, effort, lossless)
 		if err != nil {
 			return err
 		}
 	} else {
-		err := encode(w, m, quality, effort)
+		err := encode(w, m, quality, effort, lossless)
 		if err != nil {
 			return err
 		}

@@ -195,8 +195,12 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 	return ret, cfg, nil
 }
 
-func encode(w io.Writer, m image.Image, quality, effort int) error {
+func encode(w io.Writer, m image.Image, quality, effort int, lossless bool) error {
 	initEncoderOnce()
+
+	if lossless {
+		quality = 100
+	}
 
 	ctx := context.Background()
 

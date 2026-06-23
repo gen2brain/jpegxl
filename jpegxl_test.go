@@ -188,7 +188,7 @@ func TestEncode(t *testing.T) {
 	}
 	defer w.Close()
 
-	err = encode(w, img, DefaultQuality, DefaultEffort)
+	err = encode(w, img, DefaultQuality, DefaultEffort, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestEncodeDynamic(t *testing.T) {
 	}
 	defer w.Close()
 
-	err = encodeDynamic(w, img, DefaultQuality, DefaultEffort)
+	err = encodeDynamic(w, img, DefaultQuality, DefaultEffort, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestEncodeSync(t *testing.T) {
 			ch <- true
 			defer func() { <-ch; wg.Done() }()
 
-			err = encode(io.Discard, img, DefaultQuality, DefaultEffort)
+			err = encode(io.Discard, img, DefaultQuality, DefaultEffort, false)
 			if err != nil {
 				t.Error(err)
 			}
@@ -295,7 +295,7 @@ func BenchmarkEncode(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		err := encode(io.Discard, img, DefaultQuality, DefaultEffort)
+		err := encode(io.Discard, img, DefaultQuality, DefaultEffort, false)
 		if err != nil {
 			b.Error(err)
 		}
@@ -314,7 +314,7 @@ func BenchmarkEncodeDynamic(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		err := encodeDynamic(io.Discard, img, DefaultQuality, DefaultEffort)
+		err := encodeDynamic(io.Discard, img, DefaultQuality, DefaultEffort, false)
 		if err != nil {
 			b.Error(err)
 		}

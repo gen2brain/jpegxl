@@ -124,7 +124,7 @@ func decodeDynamic(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config,
 	}
 }
 
-func encodeDynamic(w io.Writer, m image.Image, quality, effort int) error {
+func encodeDynamic(w io.Writer, m image.Image, quality, effort int, lossless bool) error {
 	img := imageToNRGBA(m)
 
 	encoder := jxlEncoderCreate()
@@ -143,7 +143,7 @@ func encodeDynamic(w io.Writer, m image.Image, quality, effort int) error {
 	info.AlphaBits = 8
 	info.NumExtraChannels = 1
 
-	if quality == 100 {
+	if lossless {
 		info.UsesOriginalProfile = 1
 	}
 
@@ -161,7 +161,7 @@ func encodeDynamic(w io.Writer, m image.Image, quality, effort int) error {
 	settings := jxlEncoderFrameSettingsCreate(encoder)
 	jxlEncoderSetFrameDistance(settings, jxlEncoderDistanceFromQuality(quality))
 	jxlEncoderFrameSettingsSetOption(settings, jxlEncFrameSettingEffort, effort)
-	if quality == 100 {
+	if lossless {
 		jxlEncoderSetFrameLossless(settings, true)
 	}
 
