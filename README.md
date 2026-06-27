@@ -11,3 +11,4 @@ The library will first try to use a dynamic/shared library (if installed) via [p
 ### Build tags
 
 * `nodynamic` - do not use dynamic/shared library (use only WASM)
+* `wasm2go` - transpile WASM to Go instead of using wazero; decodes with [jxl-oxide](https://github.com/tirr-c/jxl-oxide) and encodes losslessly with [zune-jpegxl](https://github.com/etemesi254/zune-image)

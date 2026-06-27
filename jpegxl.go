@@ -1,6 +1,8 @@
 // Package jpegxl implements an JPEG XL image decoder based on libjxl compiled to WASM.
 package jpegxl
 
+//go:generate make -C lib wasm2go
+
 import (
 	"errors"
 	"image"
