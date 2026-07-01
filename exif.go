@@ -48,12 +48,7 @@ type Exif struct {
 
 // DecodeExif reads the EXIF metadata from a JPEG XL image. It returns ErrNoExif if the image carries no Exif box.
 func DecodeExif(r io.Reader) (*Exif, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("jpegxl: read: %w", err)
-	}
-
-	tiff := exifPayload(data)
+	tiff := exifPayload(r)
 	if tiff == nil {
 		return nil, ErrNoExif
 	}
@@ -66,49 +61,72 @@ func DecodeExif(r io.Reader) (*Exif, error) {
 	return exif, nil
 }
 
-// exifPayload returns the TIFF payload of the JPEG XL Exif box (plain or brotli-compressed), or nil if absent.
-func exifPayload(data []byte) []byte {
-	if len(data) >= 2 && data[0] == 0xff && data[1] == 0x0a {
-		return nil // raw codestream, no container boxes
-	}
+// exifPayload streams the container boxes, discarding the codestream, and returns the TIFF payload of the Exif box.
+func exifPayload(r io.Reader) []byte {
+	var hdr [8]byte
+	first := true
 
-	off := 0
-	for off+8 <= len(data) {
-		size := int(binary.BigEndian.Uint32(data[off : off+4]))
-		typ := string(data[off+4 : off+8])
-		hdr := 8
+	for {
+		if _, err := io.ReadFull(r, hdr[:]); err != nil {
+			return nil
+		}
 
-		if size == 1 {
-			if off+16 > len(data) {
-				break
+		if first {
+			first = false
+			if hdr[0] == 0xff && hdr[1] == 0x0a {
+				return nil // raw codestream, no container boxes
 			}
-			size = int(binary.BigEndian.Uint64(data[off+8 : off+16]))
-			hdr = 16
+		}
+
+		size := int64(binary.BigEndian.Uint32(hdr[0:4]))
+		typ := string(hdr[4:8])
+
+		body := size - 8
+		if size == 1 {
+			var big [8]byte
+			if _, err := io.ReadFull(r, big[:]); err != nil {
+				return nil
+			}
+			body = int64(binary.BigEndian.Uint64(big[:])) - 16
 		} else if size == 0 {
-			size = len(data) - off
+			body = -1 // extends to end of file
 		}
-
-		if size < hdr || off+size > len(data) {
-			break
-		}
-
-		payload := data[off+hdr : off+size]
 
 		switch typ {
 		case "Exif":
-			return exifTIFF(payload)
+			return exifTIFF(readBody(r, body))
 		case "brob":
+			payload := readBody(r, body)
 			if len(payload) >= 4 && string(payload[0:4]) == "Exif" {
 				if dec, err := io.ReadAll(brotli.NewReader(bytes.NewReader(payload[4:]))); err == nil {
 					return exifTIFF(dec)
 				}
 			}
+			return nil
 		}
 
-		off += size
+		if body < 0 {
+			return nil // last box, not Exif
+		}
+		if _, err := io.CopyN(io.Discard, r, body); err != nil {
+			return nil
+		}
+	}
+}
+
+// readBody reads n bytes, or all remaining bytes when n is negative.
+func readBody(r io.Reader, n int64) []byte {
+	if n < 0 {
+		b, _ := io.ReadAll(r)
+		return b
 	}
 
-	return nil
+	b := make([]byte, n)
+	if _, err := io.ReadFull(r, b); err != nil {
+		return nil
+	}
+
+	return b
 }
 
 // exifTIFF strips the 4-byte exif_tiff_header_offset prefix from an Exif box payload.
