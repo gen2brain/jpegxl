@@ -4,7 +4,9 @@ package jpegxl
 //go:generate make -C lib wasm2go
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"image"
 	"image/draw"
 	"io"
@@ -62,21 +64,36 @@ func Decode(r io.Reader) (image.Image, error) {
 	return ret.Image[0], nil
 }
 
-// DecodeConfig returns the color model and dimensions of a JPEG XL image without decoding the entire image.
-func DecodeConfig(r io.Reader) (image.Config, error) {
+// jxlMaxHeaderSize bounds the prefix read to reach the basic info without buffering the whole file.
+const jxlMaxHeaderSize = 1 << 18
+
+func decodeConfig(r io.Reader) (image.Config, error) {
 	var err error
 	var cfg image.Config
 
 	if dynamic {
 		_, cfg, err = decodeDynamic(r, true, false)
-		if err != nil {
-			return image.Config{}, err
-		}
 	} else {
 		_, cfg, err = decode(r, true, false)
-		if err != nil {
-			return image.Config{}, err
-		}
+	}
+
+	return cfg, err
+}
+
+// DecodeConfig returns the color model and dimensions of a JPEG XL image without decoding the entire image.
+func DecodeConfig(r io.Reader) (image.Config, error) {
+	prefix, err := io.ReadAll(io.LimitReader(r, jxlMaxHeaderSize))
+	if err != nil {
+		return image.Config{}, fmt.Errorf("jpegxl: read: %w", err)
+	}
+
+	if cfg, derr := decodeConfig(bytes.NewReader(prefix)); derr == nil {
+		return cfg, nil
+	}
+
+	cfg, err := decodeConfig(io.MultiReader(bytes.NewReader(prefix), r))
+	if err != nil {
+		return image.Config{}, err
 	}
 
 	return cfg, nil
