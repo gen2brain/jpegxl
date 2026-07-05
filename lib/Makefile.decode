@@ -10,7 +10,9 @@ export CXXFLAGS = -msimd128
 
 CMAKE_TOOLCHAIN_FILE=$(WASI_SDK_PATH)/share/cmake/wasi-sdk.cmake
 
-BIN := decode.wasm
+WASM_OPT ?= /opt/emsdk/upstream/bin/wasm-opt
+
+BIN := decode.wasm.gz
 
 all: $(BIN)
 
@@ -47,7 +49,8 @@ $(LIBJXL_BUILD)/lib/libjxl.a: $(LIBJXL_SRC)
 	cd $(LIBJXL_BUILD); \
 	$(MAKE) -j$(shell nproc)
 
-$(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
+# wasm-opt -Oz collapses the ~1300 link-time functions to the ~575 kept; gzip is the embedded artifact.
+$(BIN): $(LIBJXL_BUILD)/lib/libjxl.a decode.c
 	$(CC) \
 		-O3 \
 		-Wl,--no-entry \
@@ -59,12 +62,15 @@ $(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
 		-fno-exceptions \
 		-mnontrapping-fptoint \
 		-I ${LIBJXL_BUILD}/lib/include \
-		-o $@ \
+		-o decode.wasm \
 		-Wall \
 		decode.c \
 		${LIBJXL_BUILD}/lib/libjxl.a \
 		${LIBJXL_BUILD}/third_party/highway/libhwy.a \
 		-lstdc++
+	$(WASM_OPT) -Oz decode.wasm -o decode.opt.wasm
+	mv -f decode.opt.wasm decode.wasm
+	gzip -9 -f decode.wasm
 
 .PHONY: clean
 

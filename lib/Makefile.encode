@@ -10,7 +10,9 @@ export CXXFLAGS = -msimd128
 
 CMAKE_TOOLCHAIN_FILE=$(WASI_SDK_PATH)/share/cmake/wasi-sdk.cmake
 
-BIN := encode.wasm
+WASM_OPT ?= /opt/emsdk/upstream/bin/wasm-opt
+
+BIN := encode.wasm.gz
 
 all: $(BIN)
 
@@ -47,7 +49,8 @@ $(LIBJXL_BUILD)/lib/libjxl.a: $(LIBJXL_SRC)
 	cd $(LIBJXL_BUILD); \
 	$(MAKE) -j$(shell nproc)
 
-$(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
+# wasm-opt -Oz collapses the link-time functions; gzip is the embedded artifact.
+$(BIN): $(LIBJXL_BUILD)/lib/libjxl.a encode.c
 	$(CC) \
 		-O3 \
 		-Wl,--no-entry \
@@ -59,7 +62,7 @@ $(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
 		-fno-exceptions \
 		-mnontrapping-fptoint \
 		-I ${LIBJXL_BUILD}/lib/include \
-		-o $@ \
+		-o encode.wasm \
 		-Wall \
 		encode.c \
 		${LIBJXL_BUILD}/lib/libjxl.a \
@@ -68,6 +71,9 @@ $(BIN): $(LIBJXL_BUILD)/lib/libjxl.a
 		${LIBJXL_BUILD}/third_party/brotli/libbrotlicommon.a \
 		${LIBJXL_BUILD}/third_party/brotli/libbrotlienc.a \
 		-lstdc++
+	$(WASM_OPT) -Oz encode.wasm -o encode.opt.wasm
+	mv -f encode.opt.wasm encode.wasm
+	gzip -9 -f encode.wasm
 
 .PHONY: clean
 

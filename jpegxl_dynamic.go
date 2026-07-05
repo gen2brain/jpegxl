@@ -61,7 +61,7 @@ func decodeDynamic(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config,
 			cfg.Height = int(info.Ysize)
 			cfg.ColorModel = color.NRGBAModel
 
-			if configOnly && info.HaveAnimation == 0 {
+			if configOnly {
 				return nil, cfg, nil
 			}
 

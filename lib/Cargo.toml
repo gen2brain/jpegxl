@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 path = "lib.rs"
 
 [dependencies]
-jxl-oxide = { version = "0.12.6", default-features = false }
+jxl = { git = "https://github.com/libjxl/jxl-rs", rev = "041b060c9612aa3c7c194beb08a5ad931c7b6a09", default-features = false }
 zune-jpegxl = { version = "0.5.2", default-features = false }
 zune-core = { version = "0.5", default-features = false }
 

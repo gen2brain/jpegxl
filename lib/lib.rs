@@ -1,7 +1,9 @@
 use std::alloc::{alloc, dealloc, Layout};
-use std::io::Cursor;
+use std::slice;
 
-use jxl_oxide::JxlImage;
+use jxl::api::{
+    states, JxlDecoder, JxlDecoderOptions, JxlOutputBuffer, JxlPixelFormat, ProcessingResult,
+};
 use zune_core::bit_depth::BitDepth;
 use zune_core::colorspace::ColorSpace;
 use zune_core::options::EncoderOptions;
@@ -39,68 +41,68 @@ pub extern "C" fn free(ptr: *mut u8) {
     }
 }
 
-/// Expand `ch`-channel 8-bit samples to interleaved RGBA8.
-fn to_rgba8(src: &[u8], ch: usize, pixels: usize, dst: &mut [u8]) {
-    for i in 0..pixels {
-        let (r, g, b, a) = match ch {
-            1 => (src[i], src[i], src[i], 255),
-            2 => (src[i * 2], src[i * 2], src[i * 2], src[i * 2 + 1]),
-            3 => (src[i * 3], src[i * 3 + 1], src[i * 3 + 2], 255),
-            _ => (src[i * 4], src[i * 4 + 1], src[i * 4 + 2], src[i * 4 + 3]),
-        };
-        dst[i * 4] = r;
-        dst[i * 4 + 1] = g;
-        dst[i * 4 + 2] = b;
-        dst[i * 4 + 3] = a;
-    }
+macro_rules! complete {
+    ($e:expr) => {
+        match $e {
+            Ok(ProcessingResult::Complete { result }) => result,
+            _ => return std::ptr::null_mut(),
+        }
+    };
 }
 
 /// Decode a JXL image; fills info=[w, h, depth(8), count] and returns a malloc'd
 /// RGBA8 buffer of `count` frames, or null when config_only is set or on error.
 #[no_mangle]
 pub extern "C" fn decode(in_ptr: *const u8, in_len: i32, config_only: i32, info: *mut u32) -> *mut u8 {
-    let input = unsafe { std::slice::from_raw_parts(in_ptr, in_len as usize) };
+    let input = unsafe { slice::from_raw_parts(in_ptr, in_len as usize) };
+    let mut inp: &[u8] = input;
 
-    let image = match JxlImage::builder().read(Cursor::new(input)) {
-        Ok(i) => i,
-        Err(_) => return std::ptr::null_mut(),
-    };
+    let dec = JxlDecoder::<states::Initialized>::new(JxlDecoderOptions::default());
+    let mut dec = complete!(dec.process(&mut inp));
 
-    let w = image.width();
-    let h = image.height();
-    let count = image.num_loaded_keyframes().max(1) as u32;
+    let (w, h) = dec.basic_info().size;
     unsafe {
-        *info.add(0) = w;
-        *info.add(1) = h;
+        *info.add(0) = w as u32;
+        *info.add(1) = h as u32;
         *info.add(2) = 8;
-        *info.add(3) = count;
+        *info.add(3) = 1;
     }
     if config_only != 0 {
         return std::ptr::null_mut();
     }
 
-    let frame_size = (w as usize) * (h as usize) * 4;
-    let out = malloc(frame_size * count as usize);
+    let extra = dec.basic_info().extra_channels.len();
+    dec.set_pixel_format(JxlPixelFormat::rgba8(extra));
+
+    let frame_size = w * h * 4;
+    let mut frames: Vec<Vec<u8>> = Vec::new();
+
+    loop {
+        let mut buf = vec![0u8; frame_size];
+        {
+            let mut obufs = vec![JxlOutputBuffer::new(&mut buf, h, w * 4)];
+            let dec_fi = complete!(dec.process(&mut inp));
+            dec = complete!(dec_fi.process(&mut inp, &mut obufs));
+        }
+        frames.push(buf);
+        if !dec.has_more_frames() {
+            break;
+        }
+    }
+
+    let count = frames.len();
+    unsafe {
+        *info.add(3) = count as u32;
+    }
+
+    let out = malloc(frame_size * count);
     if out.is_null() {
         return out;
     }
-
-    for i in 0..count as usize {
-        let render = match image.render_frame(i) {
-            Ok(r) => r,
-            Err(_) => {
-                free(out);
-                return std::ptr::null_mut();
-            }
-        };
-        let mut stream = render.stream();
-        let ch = stream.channels() as usize;
-        let pixels = stream.width() as usize * stream.height() as usize;
-        let mut tmp = vec![0u8; pixels * ch];
-        stream.write_to_buffer::<u8>(&mut tmp);
-
-        let dst = unsafe { std::slice::from_raw_parts_mut(out.add(i * frame_size), frame_size) };
-        to_rgba8(&tmp, ch, pixels, dst);
+    for (i, f) in frames.iter().enumerate() {
+        unsafe {
+            std::ptr::copy_nonoverlapping(f.as_ptr(), out.add(i * frame_size), frame_size);
+        }
     }
 
     out
