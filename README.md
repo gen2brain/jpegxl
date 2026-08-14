@@ -8,6 +8,8 @@ Based on [libjxl](https://github.com/libjxl/libjxl) compiled to [WASM](https://e
 
 The library will first try to use a dynamic/shared library (if installed) via [purego](https://github.com/ebitengine/purego) and will fall back to WASM.
 
+For a pure Go alternative, see [jxl](https://github.com/gen2brain/jxl), a JPEG XL decoder and encoder with SIMD support, no CGo/WASM and no dependencies.
+
 ### Build tags
 
 * `nodynamic` - do not use dynamic/shared library (use only WASM)
