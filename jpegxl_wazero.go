@@ -162,6 +162,8 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 	images := make([]image.Image, 0)
 
 	for i := 0; i < int(count); i++ {
+		// Read returns a view of the module's memory, not a copy, and the deferred frees above write allocator
+		// metadata into it, so the pixels are copied out before returning.
 		out, ok := dec.Memory().Read(uint32(outPtr)+uint32(i*size), uint32(size))
 		if !ok {
 			return nil, cfg, ErrMemRead
@@ -169,11 +171,11 @@ func decode(r io.Reader, configOnly, decodeAll bool) (*JXL, image.Config, error)
 
 		if depth == 16 {
 			img := image.NewNRGBA64(image.Rect(0, 0, cfg.Width, cfg.Height))
-			img.Pix = out
+			copy(img.Pix, out)
 			images = append(images, img)
 		} else {
 			img := image.NewNRGBA(image.Rect(0, 0, cfg.Width, cfg.Height))
-			img.Pix = out
+			copy(img.Pix, out)
 			images = append(images, img)
 		}
 
